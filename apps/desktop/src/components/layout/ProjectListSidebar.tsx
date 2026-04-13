@@ -211,6 +211,20 @@ function ProjectListSidebar({
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem('ghost_favorites') || '[]')); } catch { return new Set(); }
   });
+  const [projectOrder, setProjectOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('ghost_project_order');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+  const sortByOrder = (items: any[]) => {
+    const indexOf = (id: string) => {
+      const i = projectOrder.indexOf(id);
+      return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+    };
+    return [...items].sort((a, b) => indexOf(a.id) - indexOf(b.id));
+  };
   const toggleFavorite = (id: string) => {
     setFavoriteIds((prev) => {
       const next = new Set(prev);
@@ -240,33 +254,53 @@ function ProjectListSidebar({
               <button onClick={onCreateBeat} className="w-full flex items-center gap-2 px-2 py-1.5 text-[13px] text-purple-400 hover:text-purple-300 hover:bg-white/[0.04] rounded-md transition-colors">
                 <span className="text-[15px]">+</span> New Projects
               </button>
-              {allProjects.filter((p: any) => p.projectType === 'beat').map((p: any) => (
-                <div
-                  key={p.id}
-                  onClick={() => { onSelect(p.id); }}
-                  className={`flex items-center w-full px-2 py-1.5 text-[13px] rounded-md transition-colors cursor-pointer ${
-                    selectedId === p.id && !selectedPackId
-                      ? 'bg-white/[0.08] text-white font-medium'
-                      : 'text-ghost-text-muted font-normal hover:bg-white/[0.04] hover:text-ghost-text-secondary'
-                  }`}
-                >
-                  <span className="flex items-center gap-2 flex-1 min-w-0">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ghost-green shrink-0">
-                      <polygon points="5 3 19 12 5 21 5 3" />
-                    </svg>
-                    <span className="truncate">{p.name}</span>
-                  </span>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); toggleFavorite(p.id); }}
-                    className="text-yellow-400 transition-colors hover:text-yellow-300 shrink-0 ml-2"
-                    title={favoriteIds.has(p.id) ? 'Remove from favorites' : 'Add to favorites'}
+              {(() => {
+                const beats = sortByOrder(allProjects.filter((p: any) => p.projectType === 'beat'));
+                const ids = beats.map((p: any) => p.id);
+                return (
+                  <Reorder.Group
+                    axis="y"
+                    values={ids}
+                    onReorder={(newIds) => {
+                      setProjectOrder(newIds);
+                      localStorage.setItem('ghost_project_order', JSON.stringify(newIds));
+                    }}
+                    style={{ listStyle: 'none', padding: 0, margin: 0 }}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill={favoriteIds.has(p.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5">
-                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
+                    {beats.map((p: any) => (
+                      <Reorder.Item
+                        key={p.id}
+                        value={p.id}
+                        style={{ listStyle: 'none' }}
+                        whileDrag={{ scale: 1.02, zIndex: 50, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}
+                        onClick={() => onSelect(p.id)}
+                        className={`flex items-center w-full px-2 py-1.5 text-[13px] rounded-md transition-colors cursor-grab active:cursor-grabbing ${
+                          selectedId === p.id && !selectedPackId
+                            ? 'bg-white/[0.08] text-white font-medium'
+                            : 'text-ghost-text-muted font-normal hover:bg-white/[0.04] hover:text-ghost-text-secondary'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2 flex-1 min-w-0">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ghost-green shrink-0">
+                            <polygon points="5 3 19 12 5 21 5 3" />
+                          </svg>
+                          <span className="truncate">{p.name}</span>
+                        </span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleFavorite(p.id); }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          className="text-yellow-400 transition-colors hover:text-yellow-300 shrink-0 ml-2"
+                          title={favoriteIds.has(p.id) ? 'Remove from favorites' : 'Add to favorites'}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill={favoriteIds.has(p.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                          </svg>
+                        </button>
+                      </Reorder.Item>
+                    ))}
+                  </Reorder.Group>
+                );
+              })()}
               {allProjects.filter((p: any) => p.projectType === 'beat').length === 0 && (
                 <p className="px-2 py-1.5 text-[13px] text-ghost-text-muted italic">No beats yet</p>
               )}
