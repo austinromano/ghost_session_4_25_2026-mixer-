@@ -108,12 +108,16 @@ export default memo(function Waveform({
       peaks[x] = max;
     }
 
+    // Derive a stable hue per track from the seed so each stem has its own color
+    let seedHash = 0;
+    for (let i = 0; i < seed.length; i++) seedHash = ((seedHash << 5) - seedHash + seed.charCodeAt(i)) | 0;
+    const baseHue = Math.abs(seedHash) % 360;
+
     for (let x = 0; x < w; x++) {
       const t = x / w;
-      const r = Math.round(0x00 + (0x8B - 0x00) * t);
-      const g = Math.round(0xFF + (0x5C - 0xFF) * t);
-      const b = Math.round(0xC8 + (0xF6 - 0xC8) * t);
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      // Gentle hue shift of ~20° across the width, constant saturation/lightness
+      const hue = (baseHue + t * 20) % 360;
+      ctx.fillStyle = `hsl(${hue}, 70%, 60%)`;
 
       const peakH = peaks[x] * mid * 0.84;
       if (peakH > 0.5) {

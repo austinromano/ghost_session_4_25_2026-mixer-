@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, memo } from 'react';
-import { motion } from 'framer-motion';
 import { useAudioStore } from '../../stores/audioStore';
 import { api } from '../../lib/api';
 import { audioBufferCache, cacheBuffer, formatDate } from '../../lib/audio';
@@ -140,24 +139,17 @@ export default memo(function StemRow({
     setTimeout(() => iframe.remove(), 1000);
   };
 
+  const displayName = name.replace(/\.(wav|mp3|flac|aiff|ogg|m4a)$/i, '').replace(/_/g, ' ');
+
   return (
-    <div className="relative rounded-xl overflow-visible">
-      <motion.div
-        className="absolute -inset-px rounded-xl opacity-40 pointer-events-none"
-        style={{
-          background: 'linear-gradient(90deg, #00FFC8, #7C3AED, #EC4899, #F59E0B, #00B4D8, #00FFC8)',
-          backgroundSize: '200% 100%',
-        }}
-        animate={{ backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] }}
-        transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
-      />
+    <div className="relative rounded-xl overflow-visible border border-white/5 hover:border-white/10 transition-colors">
     <div
       className={`group relative flex items-center rounded-xl overflow-hidden ${compact ? 'h-[48px]' : 'h-[95px]'}`}
       style={widthPercent !== undefined && widthPercent < 100 ? { width: `${widthPercent}%` } : undefined}
     >
       <div className="flex-1 h-full overflow-hidden bg-[#0A0412] relative">
         <Waveform seed={name + type} height={compact ? 48 : 95} fileId={fileId} projectId={projectId} trackId={trackId} showPlayhead={true} />
-        <div className="absolute inset-y-0 left-0 w-[45%] pointer-events-none" style={{ background: 'linear-gradient(90deg, rgba(10,4,18,0.85) 0%, rgba(10,4,18,0.4) 60%, transparent 100%)' }} />
+        <div className="absolute inset-y-0 left-0 w-[35%] pointer-events-none" style={{ background: 'linear-gradient(90deg, rgba(10,4,18,0.92) 0%, rgba(10,4,18,0.5) 70%, transparent 100%)' }} />
         <div className="absolute left-3 top-2 z-10 max-w-[40%]">
           {editing ? (
             <input
@@ -176,14 +168,14 @@ export default memo(function StemRow({
             />
           ) : (
             <p
-              className="text-[13px] font-bold text-white truncate cursor-pointer hover:text-ghost-green transition-colors"
+              className="text-[13px] font-semibold text-white/90 truncate cursor-pointer hover:text-white transition-colors tracking-tight"
               onClick={() => { setEditName(name); setEditing(true); }}
               title={name}
             >
-              {name}
+              {displayName}
             </p>
           )}
-          <p className="text-[10px] text-white/40 uppercase font-medium mt-0.5">{type === 'audio' ? 'stem' : type === 'fullmix' ? 'mix' : type}</p>
+          <p className="text-[9px] text-white/35 uppercase font-medium mt-0.5 tracking-[0.1em]">{type === 'audio' ? 'stem' : type === 'fullmix' ? 'mix' : type}</p>
         </div>
         {createdAt && (
           <div className="absolute left-3 bottom-2 z-10">
