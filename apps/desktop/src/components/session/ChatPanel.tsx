@@ -29,6 +29,7 @@ function peerKey(userId: string, streamType: StreamType): string {
 export default function ChatPanel() {
   const { chatMessages, sendMessage, deleteMessage, onlineUsers, currentProjectId } = useSessionStore();
   const userId = useAuthStore((s) => s.user?.id);
+  const currentUser = useAuthStore((s) => s.user);
   const [text, setText] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
   const emojiRef = useRef<HTMLDivElement>(null);
@@ -428,9 +429,14 @@ export default function ChatPanel() {
                   )}
                 </div>
                 {isOwn && (
+                  <div className={`shrink-0 w-8 ${sameAsPrev ? 'invisible' : ''}`}>
+                    <Avatar name={currentUser?.displayName || 'You'} src={currentUser?.avatarUrl || null} size="sm" />
+                  </div>
+                )}
+                {isOwn && (
                   <button
                     onClick={() => deleteMessage(origIndex)}
-                    className="absolute top-0 right-1 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-ghost-text-muted hover:text-ghost-error-red hover:bg-ghost-error-red/10 transition-all"
+                    className="absolute top-0 right-10 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-ghost-text-muted hover:text-ghost-error-red hover:bg-ghost-error-red/10 transition-all"
                     title="Delete message"
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
