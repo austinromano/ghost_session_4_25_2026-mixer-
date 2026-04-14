@@ -114,7 +114,6 @@ export default function TransportBar({ tracks, projectId, projectTempo, onTempoC
       <div className="h-4 w-full flex items-stretch overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         {Array.from({ length: 16 }, (_, bar) => (
           <div key={bar} className="flex-1 flex items-start relative" style={{ borderLeft: '1px solid rgba(255,255,255,0.12)' }}>
-            <span className="text-[10px] font-mono text-white/30 ml-1 mt-0.5 select-none">{bar + 1}</span>
             <div className="absolute bottom-0 left-1/4 w-px h-2" style={{ background: 'rgba(255,255,255,0.06)' }} />
             <div className="absolute bottom-0 left-1/2 w-px h-3" style={{ background: 'rgba(255,255,255,0.08)' }} />
             <div className="absolute bottom-0 left-3/4 w-px h-2" style={{ background: 'rgba(255,255,255,0.06)' }} />
