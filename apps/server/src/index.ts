@@ -103,6 +103,8 @@ app.get('/app', serveStatic({ root: '../desktop/dist', path: '/index.html' }));
 // Serve at root for VST3 plugin and direct access
 app.use('/assets/*', serveStatic({ root: './public' }));
 app.use('/assets/*', serveStatic({ root: '../desktop/dist' }));
+app.get('/sw.js', serveStatic({ root: './public', path: '/sw.js' }));
+app.get('/sw.js', serveStatic({ root: '../desktop/dist', path: '/sw.js' }));
 app.get('/', serveStatic({ root: './public', path: '/index.html' }));
 app.get('/', serveStatic({ root: '../desktop/dist', path: '/index.html' }));
 
