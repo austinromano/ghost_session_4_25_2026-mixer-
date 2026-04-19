@@ -39,6 +39,29 @@ const INVITE_NUDGE_FLAG = 'ghost_shown_invite_nudge';
 
 const VIZ_MODES = ['bars', 'wave', 'radial', 'ghost'] as const;
 
+function DockButton({ title, active, onClick, children }: { title: string; active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <motion.button
+      onClick={onClick}
+      whileHover={{ scale: 1.06 }}
+      whileTap={{ scale: 0.94 }}
+      title={title}
+      className={`w-11 h-11 flex items-center justify-center rounded-2xl transition-all shadow-[0_2px_8px_rgba(0,0,0,0.3)] hover:rounded-xl ${
+        active ? 'text-white' : 'text-white/60 hover:text-white'
+      }`}
+      style={{
+        background: active ? 'linear-gradient(135deg, #00FFC8 0%, #7C3AED 100%)' : 'rgba(255,255,255,0.05)',
+        border: active ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(255,255,255,0.08)',
+        boxShadow: active
+          ? '0 0 16px rgba(0,255,200,0.3), 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)'
+          : '0 2px 8px rgba(0,0,0,0.3)',
+      }}
+    >
+      {children}
+    </motion.button>
+  );
+}
+
 export default function PluginLayout() {
   const { user, logout } = useAuthStore();
   const { projects, currentProject, fetchProjects, fetchProject, createProject, updateProject, updateTrack, deleteTrack, versions, fetchVersions } = useProjectStore();
@@ -52,6 +75,7 @@ export default function PluginLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showSocial, setShowSocial] = useState(false);
   const [showMarketplace, setShowMarketplace] = useState(false);
+  const [showMessages, setShowMessages] = useState(false);
   const [chatCollapsed, setChatCollapsed] = useState(false);
   const [videoGridHidden, setVideoGridHidden] = useState(true);
   const [shareStatus, setShareStatus] = useState('');
@@ -253,6 +277,17 @@ export default function PluginLayout() {
     if (selectedProjectId) { leave(); audioCleanup(); }
   };
 
+  type DockMode = 'home' | 'explore' | 'messages' | 'marketplace';
+  const goTo = (mode: DockMode) => {
+    if (selectedProjectId) { leave(); audioCleanup(); }
+    setSelectedProjectId(null);
+    samplePackState.setSelectedPackId(null);
+    setShowSocial(mode === 'explore');
+    setShowMessages(mode === 'messages');
+    setShowMarketplace(mode === 'marketplace');
+  };
+  const atHome = !selectedProjectId && !samplePackState.selectedPackId && !showSocial && !showMessages && !showMarketplace;
+
   // ── Render ──
 
   return (
@@ -279,36 +314,34 @@ export default function PluginLayout() {
           <ellipse cx="12.5" cy="9.2" rx="0.6" ry="0.7" fill="#0A0412" />
         </motion.svg>
 
-        <motion.button
-          onClick={() => {
-            setShowSocial(true);
-            setSelectedProjectId(null);
-            samplePackState.setSelectedPackId(null);
-            if (selectedProjectId) { leave(); audioCleanup(); }
-          }}
-          whileHover={{ scale: 1.06 }}
-          whileTap={{ scale: 0.94 }}
-          title="Explore feed"
-          className={`w-11 h-11 flex items-center justify-center rounded-2xl transition-all shadow-[0_2px_8px_rgba(0,0,0,0.3)] hover:rounded-xl ${
-            showSocial
-              ? 'text-white'
-              : 'text-white/60 hover:text-white'
-          }`}
-          style={{
-            background: showSocial
-              ? 'linear-gradient(135deg, #00FFC8 0%, #7C3AED 100%)'
-              : 'rgba(255,255,255,0.05)',
-            border: showSocial ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(255,255,255,0.08)',
-            boxShadow: showSocial
-              ? '0 0 16px rgba(0,255,200,0.3), 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)'
-              : '0 2px 8px rgba(0,0,0,0.3)',
-          }}
-        >
+        <DockButton title="Home" active={atHome} onClick={() => goTo('home')}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 12L12 3l9 9" />
+            <path d="M5 10v10a1 1 0 0 0 1 1h3v-6h6v6h3a1 1 0 0 0 1-1V10" />
+          </svg>
+        </DockButton>
+
+        <DockButton title="Explore feed" active={showSocial} onClick={() => goTo('explore')}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10" />
             <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
           </svg>
-        </motion.button>
+        </DockButton>
+
+        <DockButton title="Messages" active={showMessages} onClick={() => goTo('messages')}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+          </svg>
+        </DockButton>
+
+        <DockButton title="Marketplace" active={showMarketplace} onClick={() => goTo('marketplace')}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 9h18l-1.5 10a2 2 0 0 1-2 1.8H6.5a2 2 0 0 1-2-1.8L3 9z" />
+            <path d="M8 9V6a4 4 0 0 1 8 0v3" />
+          </svg>
+        </DockButton>
+
+        <div className="w-8 h-px bg-white/10 my-1" />
 
         <div
           className="relative cursor-pointer"
@@ -656,6 +689,21 @@ export default function PluginLayout() {
                 </>
               ) : showSocial ? (
                 <SocialFeed user={user} friends={friends} />
+              ) : showMessages ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-20 h-20 rounded-full bg-purple-500/10 flex items-center justify-center mx-auto mb-5">
+                      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                      </svg>
+                    </div>
+                    <h2 className="text-2xl font-bold text-white mb-2">Messages</h2>
+                    <p className="text-[15px] text-white/40">Coming Soon</p>
+                    <p className="text-[13px] text-white/25 mt-2 max-w-xs mx-auto">
+                      Direct chats with the producers you follow — separate from project sessions.
+                    </p>
+                  </div>
+                </div>
               ) : showMarketplace ? (
                 <div className="flex-1 flex items-center justify-center">
                   <div className="text-center">
