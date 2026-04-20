@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { api } from '../../lib/api';
 import Waveform from './Waveform';
 
-export default memo(function FullMixDropZone({ projectId, onFilesAdded, isBeat, compact }: { projectId: string; onFilesAdded: () => void; isBeat?: boolean; compact?: boolean }) {
+export default memo(function FullMixDropZone({ projectId, onFilesAdded, isBeat, compact, rightSlot }: { projectId: string; onFilesAdded: () => void; isBeat?: boolean; compact?: boolean; rightSlot?: React.ReactNode }) {
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState('');
@@ -104,6 +104,7 @@ export default memo(function FullMixDropZone({ projectId, onFilesAdded, isBeat, 
                 </svg>
                 Upload
               </motion.button>
+              {rightSlot}
             </>
           )}
         </div>

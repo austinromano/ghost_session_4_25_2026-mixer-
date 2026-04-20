@@ -561,20 +561,7 @@ export default function PluginLayout() {
                             onInvite={() => setShowInvite(!showInvite)}
                           />
 
-                          <div className="flex items-center gap-1 mb-3">
-                            <button
-                              onClick={handleDownloadStems}
-                              className="flex items-center gap-2 px-5 py-2 rounded-lg text-[14px] font-bold tracking-wide transition-all hover:brightness-110 active:scale-[0.98]"
-                              style={{ background: '#7C3AED', color: '#fff' }}
-                            >
-                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                <polyline points="7 10 12 15 17 10" />
-                                <line x1="12" y1="15" x2="12" y2="3" />
-                              </svg>
-                              Download Stems
-                            </button>
-                            <div className="flex-1" />
+                          <div className="flex items-center gap-1 mb-3 justify-end">
                             <button
                               onClick={() => setTrackZoom('half')}
                               className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${trackZoom === 'half' ? 'text-ghost-green' : 'text-white/30 hover:text-white/60'}`}
@@ -600,7 +587,28 @@ export default function PluginLayout() {
                           <ArrangementDropZone projectId={selectedProjectId!} onFilesAdded={() => fetchProject(selectedProjectId!)}>
                             <ArrangementScrollView showAll={showAllBars}>
                               <BarRuler />
-                              <FullMixDropZone projectId={selectedProjectId!} onFilesAdded={() => fetchProject(selectedProjectId!)} isBeat={isBeatView} compact={trackZoom === 'half'} />
+                              <FullMixDropZone
+                                projectId={selectedProjectId!}
+                                onFilesAdded={() => fetchProject(selectedProjectId!)}
+                                isBeat={isBeatView}
+                                compact={trackZoom === 'half'}
+                                rightSlot={(
+                                  <motion.button
+                                    onClick={handleDownloadStems}
+                                    className="w-[148px] h-11 rounded-full text-white text-[14px] font-semibold flex items-center justify-center gap-2 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] hover:shadow-[0_0_20px_rgba(124,58,237,0.4),0_2px_8px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.2)] shrink-0"
+                                    style={{ background: 'linear-gradient(180deg, #7C3AED 0%, #581C87 100%)' }}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                  >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                      <polyline points="7 10 12 15 17 10" />
+                                      <line x1="12" y1="15" x2="12" y2="3" />
+                                    </svg>
+                                    Download Stems
+                                  </motion.button>
+                                )}
+                              />
                               <DraggableTrackList
                                 tracks={currentProject.tracks}
                                 selectedProjectId={selectedProjectId!}
