@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { api, type Booking } from '../lib/api';
 import { getSocket } from '../lib/socket';
+import { useProjectStore } from './projectStore';
 
 interface BookingsState {
   bookings: Booking[];
@@ -52,9 +53,10 @@ export const useBookingsStore = create<BookingsState>((set, get) => ({
         }
         // When a booking just gained a projectId (i.e. the invitee accepted
         // and the server auto-provisioned a shared project), refresh the
-        // project sidebar so it appears for both users immediately.
+        // project list directly so both users' sidebars show it immediately,
+        // even if they're not currently inside a project.
         if (booking.projectId && prev?.projectId !== booking.projectId) {
-          window.dispatchEvent(new CustomEvent('ghost-refresh-project'));
+          useProjectStore.getState().fetchProjects();
         }
       });
       socketHandlerAttached = true;
@@ -72,7 +74,7 @@ export const useBookingsStore = create<BookingsState>((set, get) => ({
     const updated = await api.updateBooking(id, { status: 'accepted' });
     set({ bookings: get().bookings.map((b) => b.id === id ? updated : b) });
     if (updated.projectId && prev?.projectId !== updated.projectId) {
-      window.dispatchEvent(new CustomEvent('ghost-refresh-project'));
+      useProjectStore.getState().fetchProjects();
     }
   },
 
