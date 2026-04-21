@@ -167,16 +167,21 @@ projectRoutes.put('/:id/arrangement', async (c) => {
 
   await assertEditor(projectId, user.id);
 
-  // Minimal shape check — accept whatever the client sends so long as clips
-  // is an array. The client owns the schema; server is just a passthrough.
   if (!body || typeof body !== 'object' || !Array.isArray(body.clips)) {
     throw new HTTPException(400, { message: 'arrangement.clips must be an array' });
   }
 
-  await db.update(projects)
-    .set({ arrangementJson: JSON.stringify(body), updatedAt: new Date().toISOString() })
-    .where(eq(projects.id, projectId))
-    .run();
+  const serialized = JSON.stringify(body);
+  try {
+    await db.update(projects)
+      .set({ arrangementJson: serialized, updatedAt: new Date().toISOString() })
+      .where(eq(projects.id, projectId))
+      .run();
+    console.log(`[arrangement.save] ok project=${projectId} user=${user.id} clips=${body.clips.length} bytes=${serialized.length}`);
+  } catch (err) {
+    console.error(`[arrangement.save] FAILED project=${projectId} user=${user.id}:`, err);
+    throw err;
+  }
 
   emitProjectUpdated(projectId, 'metadata-updated');
   return c.json({ success: true });

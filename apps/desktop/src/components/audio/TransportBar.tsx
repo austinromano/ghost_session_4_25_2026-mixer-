@@ -129,7 +129,7 @@ export default function TransportBar({ tracks, projectId, projectTempo, onTempoC
         lastSentServerRef.current = JSON.stringify(state);
         await api.saveArrangement(projectId, state);
       } catch (err) {
-        if (import.meta.env.DEV) console.warn('[TransportBar] saveArrangement server failed', err);
+        console.error('[TransportBar] saveArrangement server failed', err);
       }
     }, 500);
     return () => clearTimeout(timer);

@@ -227,6 +227,28 @@ export async function initDatabase() {
     }
   }
 
+  // Belt-and-braces check: verify critical columns exist after migrations
+  // run. If any are missing (e.g. because an earlier boot silently skipped a
+  // migration for some reason), add them now with explicit logging so we can
+  // see exactly what happened in Railway logs.
+  const required: Array<[string, string, string]> = [
+    ['projects', 'arrangement_json', 'TEXT'],
+    ['bookings', 'project_id', 'TEXT'],
+  ];
+  for (const [table, column, type] of required) {
+    try {
+      const info = await client.execute(`PRAGMA table_info('${table}')`);
+      const names = new Set((info.rows as any[]).map((r) => r.name as string));
+      if (!names.has(column)) {
+        console.warn(`[db.verify] ${table}.${column} missing — adding now`);
+        await client.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+        console.warn(`[db.verify] ${table}.${column} added`);
+      }
+    } catch (err) {
+      console.warn(`[db.verify] failed for ${table}.${column}:`, err);
+    }
+  }
+
   // Migrate existing local avatar files into the database
   try {
     const { readFile } = await import('node:fs/promises');
