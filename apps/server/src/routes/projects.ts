@@ -126,6 +126,24 @@ projectRoutes.patch('/:id', async (c) => {
 
   await assertEditor(projectId, user.id);
 
+  // Session-auto-created projects: only the host (project owner) may rename.
+  // Other metadata edits remain open to all editors. Invitees could still
+  // create misleading context by renaming a scheduled session, so we lock it.
+  if (body.name !== undefined) {
+    const { bookings } = await import('../db/schema.js');
+    const [bk] = await db.select({ id: bookings.id })
+      .from(bookings)
+      .where(eq(bookings.projectId, projectId))
+      .limit(1).all();
+    if (bk) {
+      const [project] = await db.select({ ownerId: projects.ownerId })
+        .from(projects).where(eq(projects.id, projectId)).limit(1).all();
+      if (project && project.ownerId !== user.id) {
+        throw new HTTPException(403, { message: 'Only the session host can rename this project' });
+      }
+    }
+  }
+
   await db.update(projects).set({ ...body, updatedAt: new Date().toISOString() })
     .where(eq(projects.id, projectId)).run();
 

@@ -5,6 +5,7 @@ import type { ProjectDetail } from '@ghost/types';
 interface Props {
   project: ProjectDetail;
   canDelete: boolean;
+  canRename: boolean;
   onNameChange: (name: string) => void;
   onTempoChange: (tempo: number) => void;
   onKeyChange: (key: string) => void;
@@ -19,7 +20,7 @@ interface Props {
 const TIME_SIGNATURES = ['2/4', '3/4', '4/4', '5/4', '6/4', '7/4', '6/8', '7/8', '9/8', '12/8'];
 
 export default function ProjectHeaderBar({
-  project, canDelete, onNameChange, onTempoChange, onKeyChange, onTimeSignatureChange,
+  project, canDelete, canRename, onNameChange, onTempoChange, onKeyChange, onTimeSignatureChange,
   onShowVersionHistory, onShareToFeed, onInvite, onDelete, onLeave,
 }: Props) {
   const [name, setName] = useState(project.name);
@@ -74,10 +75,16 @@ export default function ProjectHeaderBar({
   return (
     <div className="flex items-center gap-3 shrink-0 rounded-2xl mb-1 pl-6 pr-3 min-w-0 h-[50px] glass glass-glow">
       <input
-        className="text-[15px] font-bold text-white bg-transparent border border-transparent hover:bg-white/[0.04] hover:border-white/[0.08] focus:bg-white/[0.04] focus:border-ghost-green/30 outline-none px-2 py-0 rounded-md transition-colors min-w-[60px] flex-1 cursor-text"
+        className={`text-[15px] font-bold text-white bg-transparent border border-transparent outline-none px-2 py-0 rounded-md transition-colors min-w-[60px] flex-1 ${
+          canRename
+            ? 'hover:bg-white/[0.04] hover:border-white/[0.08] focus:bg-white/[0.04] focus:border-ghost-green/30 cursor-text'
+            : 'cursor-default'
+        }`}
         value={name}
-        onChange={(e) => debouncedName(e.target.value)}
-        onBlur={() => { if (nameTimer.current) clearTimeout(nameTimer.current); if (name.trim() && name !== project.name) onNameChange(name); }}
+        readOnly={!canRename}
+        title={canRename ? undefined : 'Only the session host can rename this project'}
+        onChange={(e) => { if (canRename) debouncedName(e.target.value); }}
+        onBlur={() => { if (!canRename) return; if (nameTimer.current) clearTimeout(nameTimer.current); if (name.trim() && name !== project.name) onNameChange(name); }}
       />
       {project.updatedAt && (
         <>

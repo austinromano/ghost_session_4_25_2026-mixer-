@@ -478,6 +478,7 @@ export default function PluginLayout() {
                     <ProjectHeaderBar
                       project={currentProject}
                       canDelete={currentProject.ownerId === user?.id}
+                      canRename={currentProject.ownerId === user?.id}
                       onNameChange={(name) => updateProject(currentProject.id, { name })}
                       onTempoChange={(tempo) => updateProject(currentProject.id, { tempo })}
                       onKeyChange={(key) => updateProject(currentProject.id, { key })}
