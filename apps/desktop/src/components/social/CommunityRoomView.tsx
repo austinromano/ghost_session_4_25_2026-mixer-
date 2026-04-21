@@ -18,6 +18,7 @@ export default function CommunityRoomView({ onClose }: { onClose: () => void }) 
   const messagesByRoom = useCommunityStore((s) => s.messagesByRoom);
   const membersByRoom = useCommunityStore((s) => s.membersByRoom);
   const send = useCommunityStore((s) => s.send);
+  const deleteMessage = useCommunityStore((s) => s.deleteMessage);
   const me = useAuthStore((s) => s.user);
 
   const room = useMemo(() => ROOMS.find((r) => r.id === activeRoomId), [activeRoomId]);
@@ -82,7 +83,7 @@ export default function CommunityRoomView({ onClose }: { onClose: () => void }) 
             const sameAsPrev = prev && prev.userId === msg.userId
               && (Date.parse(msg.createdAt) - Date.parse(prev.createdAt)) < 5 * 60 * 1000;
             return (
-              <div key={msg.id} className={`flex items-end gap-2 ${isOwn ? 'justify-end' : 'justify-start'} ${sameAsPrev ? 'mt-0.5' : 'mt-3'}`}>
+              <div key={msg.id} className={`group flex items-end gap-2 ${isOwn ? 'justify-end' : 'justify-start'} ${sameAsPrev ? 'mt-0.5' : 'mt-3'}`}>
                 {!isOwn && (
                   <div className={`shrink-0 w-8 ${sameAsPrev ? 'invisible' : ''}`}>
                     <Avatar name={msg.displayName} src={msg.avatarUrl} size="sm" />
@@ -92,11 +93,25 @@ export default function CommunityRoomView({ onClose }: { onClose: () => void }) 
                   {!sameAsPrev && !isOwn && (
                     <span className="text-[11px] font-semibold text-white/60 px-2">{msg.displayName}</span>
                   )}
-                  <div
-                    className={`px-3.5 py-2 text-[13px] leading-[1.4] break-words rounded-[18px] ${isOwn ? 'text-white rounded-br-md' : 'text-ghost-text-primary rounded-bl-md'}`}
-                    style={{ background: isOwn ? '#7C3AED' : 'rgba(255,255,255,0.08)' }}
-                  >
-                    {msg.text}
+                  <div className={`flex items-center gap-1.5 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
+                    <div
+                      className={`px-3.5 py-2 text-[13px] leading-[1.4] break-words rounded-[18px] ${isOwn ? 'text-white rounded-br-md' : 'text-ghost-text-primary rounded-bl-md'}`}
+                      style={{ background: isOwn ? '#7C3AED' : 'rgba(255,255,255,0.08)' }}
+                    >
+                      {msg.text}
+                    </div>
+                    {isOwn && (
+                      <button
+                        onClick={() => deleteMessage(msg.id)}
+                        title="Delete message"
+                        className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-white/40 hover:text-red-400 hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-all"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                   {!sameAsPrev && (
                     <span className="text-[10px] text-white/30 px-2 mt-0.5">{fmtTime(msg.createdAt)}</span>

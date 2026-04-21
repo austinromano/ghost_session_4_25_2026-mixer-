@@ -74,6 +74,20 @@ export function registerCommunityHandlers(io: IO, socket: SK) {
     });
   });
 
+  socket.on('community:delete', async ({ roomId, messageId }) => {
+    if (!KNOWN_ROOMS.has(roomId)) return;
+    // Only the author can delete. Check first to avoid leaking ownership.
+    const [row] = await db.select({ userId: communityMessages.userId, roomId: communityMessages.roomId })
+      .from(communityMessages)
+      .where(eq(communityMessages.id, messageId))
+      .limit(1).all();
+    if (!row) return;
+    if (row.userId !== socket.data.userId) return;
+    if (row.roomId !== roomId) return;
+    await db.delete(communityMessages).where(eq(communityMessages.id, messageId)).run();
+    io.to(`community:${roomId}`).emit('community:message-deleted', { roomId, messageId });
+  });
+
   socket.on('disconnect', () => {
     for (const roomId of joinedRooms) {
       presence.get(roomId)?.delete(socket.data.userId);

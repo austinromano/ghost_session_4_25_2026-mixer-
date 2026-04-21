@@ -10,6 +10,7 @@ interface CommunityState {
   openRoom: (roomId: string) => Promise<void>;
   closeRoom: () => void;
   send: (text: string) => void;
+  deleteMessage: (messageId: string) => void;
 }
 
 let socketHandlerAttached = false;
@@ -32,6 +33,14 @@ function ensureSocketHandlers(set: (partial: Partial<CommunityState> | ((s: Comm
     const map = new Map(get().membersByRoom);
     map.set(roomId, members);
     set({ membersByRoom: map });
+  });
+
+  socket.on('community:message-deleted', ({ roomId, messageId }) => {
+    const map = new Map(get().messagesByRoom);
+    const list = map.get(roomId);
+    if (!list) return;
+    map.set(roomId, list.filter((m) => m.id !== messageId));
+    set({ messagesByRoom: map });
   });
 
   socketHandlerAttached = true;
@@ -78,5 +87,12 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
     if (!roomId) return;
     const socket = getSocket();
     socket?.emit('community:send', { roomId, text });
+  },
+
+  deleteMessage: (messageId) => {
+    const roomId = get().activeRoomId;
+    if (!roomId) return;
+    const socket = getSocket();
+    socket?.emit('community:delete', { roomId, messageId });
   },
 }));

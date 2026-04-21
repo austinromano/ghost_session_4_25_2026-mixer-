@@ -71,6 +71,7 @@ export interface ClientToServerEvents {
   'community:join': (data: { roomId: string }) => void;
   'community:leave': (data: { roomId: string }) => void;
   'community:send': (data: { roomId: string; text: string }) => void;
+  'community:delete': (data: { roomId: string; messageId: string }) => void;
 }
 
 // ── Server → Client ──────────────────────────────────────────────────
@@ -156,6 +157,7 @@ export interface ServerToClientEvents {
     text: string;
     createdAt: string;
   }) => void;
+  'community:message-deleted': (data: { roomId: string; messageId: string }) => void;
   'cursor-move': (data: {
     userId: string;
     displayName: string;
