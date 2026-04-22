@@ -3,6 +3,8 @@ import { useAudioStore } from '../../stores/audioStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { audioBufferCache, cacheBuffer, detectBpmFromName, formatTime } from '../../lib/audio';
 import { api } from '../../lib/api';
+import { getSocket } from '../../lib/socket';
+import { useCollabStore } from '../../stores/collabStore';
 import FrequencyBar, { type VizMode } from './FrequencyBar';
 
 export default function TransportBar({ tracks, projectId, projectTempo, onTempoChange, trackZoom, onZoomChange, vizMode }: { tracks?: any[]; projectId?: string; projectTempo?: number; onTempoChange?: (bpm: number) => void; trackZoom?: 'full' | 'half'; onZoomChange?: (zoom: 'full' | 'half') => void; vizMode?: VizMode }) {
@@ -170,6 +172,38 @@ export default function TransportBar({ tracks, projectId, projectTempo, onTempoC
       window.removeEventListener('beforeunload', flush);
     };
   }, [projectId, tracks]);
+
+  // Attach the collab store to the current project so remote transport
+  // ticks and clip drags route into state. Detach on unmount / project switch.
+  useEffect(() => {
+    if (!projectId) return;
+    useCollabStore.getState().attach(projectId);
+    return () => useCollabStore.getState().detach();
+  }, [projectId]);
+
+  // Broadcast a transport tick at ~10 Hz while playing so collaborators
+  // see a ghost playhead follow us. On pause we send one final tick with
+  // isPlaying:false so their ghost snaps to the right spot and stops.
+  useEffect(() => {
+    if (!projectId) return;
+    const socket = getSocket();
+    if (!socket) return;
+    // Always emit one tick per state change so paused/resumed state is current.
+    socket.emit('transport:tick', {
+      projectId,
+      currentTime: useAudioStore.getState().currentTime,
+      isPlaying,
+    });
+    if (!isPlaying) return;
+    const id = setInterval(() => {
+      socket.emit('transport:tick', {
+        projectId,
+        currentTime: useAudioStore.getState().currentTime,
+        isPlaying: true,
+      });
+    }, 100);
+    return () => clearInterval(id);
+  }, [projectId, isPlaying]);
 
   const hasTracksLoaded = loadedTracks.size > 0;
 

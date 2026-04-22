@@ -72,6 +72,12 @@ export interface ClientToServerEvents {
   'community:leave': (data: { roomId: string }) => void;
   'community:send': (data: { roomId: string; text?: string; audioFileId?: string; audioFileName?: string }) => void;
   'community:delete': (data: { roomId: string; messageId: string }) => void;
+  // Live per-user transport tick — client emits at ~10 Hz while playing so
+  // collaborators see a ghost playhead following them.
+  'transport:tick': (data: { projectId: string; currentTime: number; isPlaying: boolean }) => void;
+  // Live clip drag: non-null liveOffset streams while the pointer is down;
+  // emit one final event with liveOffset:null on pointer-up to clear.
+  'clip:drag': (data: { projectId: string; trackId: string; liveOffset: number | null }) => void;
 }
 
 // ── Server → Client ──────────────────────────────────────────────────
@@ -160,6 +166,22 @@ export interface ServerToClientEvents {
     createdAt: string;
   }) => void;
   'community:message-deleted': (data: { roomId: string; messageId: string }) => void;
+  'transport:remote-tick': (data: {
+    projectId: string;
+    userId: string;
+    displayName: string;
+    colour: string;
+    currentTime: number;
+    isPlaying: boolean;
+  }) => void;
+  'clip:remote-drag': (data: {
+    projectId: string;
+    userId: string;
+    displayName: string;
+    colour: string;
+    trackId: string;
+    liveOffset: number | null;
+  }) => void;
   'cursor-move': (data: {
     userId: string;
     displayName: string;

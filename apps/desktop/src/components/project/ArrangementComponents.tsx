@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useAudioStore, pendingTrackOffsets } from '../../stores/audioStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { useCollabStore } from '../../stores/collabStore';
 import { api } from '../../lib/api';
 import { snapToBar } from '../../lib/audio';
+import { getSocket } from '../../lib/socket';
 import Waveform from '../tracks/Waveform';
 import Avatar from '../common/Avatar';
 
@@ -143,15 +145,42 @@ export function ArrangementPlayhead() {
   const isPlaying = useAudioStore((s) => s.isPlaying);
   const soloPlayingTrackId = useAudioStore((s) => s.soloPlayingTrackId);
   const { arrangementDur } = useArrangement();
+  // Ghost playheads for collaborators currently in the project room.
+  const remoteTransports = useCollabStore((s) => s.remoteTransports);
 
-  if ((!isPlaying && currentTime === 0) || soloPlayingTrackId) return null;
-  const pct = arrangementDur > 0 ? (currentTime / arrangementDur) * 100 : 0;
+  if (soloPlayingTrackId) return null;
+  const showLocal = isPlaying || currentTime > 0;
+  const localPct = arrangementDur > 0 ? (currentTime / arrangementDur) * 100 : 0;
+
+  const remotes: Array<{ userId: string; pct: number; colour: string; displayName: string; isPlaying: boolean }> = [];
+  remoteTransports.forEach((t) => {
+    if (arrangementDur <= 0) return;
+    const pct = (t.currentTime / arrangementDur) * 100;
+    remotes.push({ userId: t.userId, pct, colour: t.colour, displayName: t.displayName, isPlaying: t.isPlaying });
+  });
 
   return (
-    <div
-      className="absolute top-0 bottom-0 w-[2px] pointer-events-none z-20"
-      style={{ left: `${Math.min(pct, 100)}%`, background: '#00FFC8', boxShadow: '0 0 6px rgba(0,255,200,0.5)' }}
-    />
+    <>
+      {remotes.map((r) => (
+        <div
+          key={r.userId}
+          className="absolute top-0 bottom-0 w-[2px] pointer-events-none z-[18]"
+          style={{
+            left: `${Math.min(r.pct, 100)}%`,
+            background: r.colour,
+            opacity: r.isPlaying ? 0.75 : 0.35,
+            boxShadow: `0 0 5px ${r.colour}`,
+          }}
+          title={`${r.displayName}${r.isPlaying ? ' (playing)' : ''}`}
+        />
+      ))}
+      {showLocal && (
+        <div
+          className="absolute top-0 bottom-0 w-[2px] pointer-events-none z-20"
+          style={{ left: `${Math.min(localPct, 100)}%`, background: '#00FFC8', boxShadow: '0 0 6px rgba(0,255,200,0.5)' }}
+        />
+      )}
+    </>
   );
 }
 
@@ -164,6 +193,9 @@ function LaneClip({ track, selectedProjectId, deleteTrack, trackZoom, laneWidth,
   const clipDur = useAudioStore((s) => s.loadedTracks.get(track.id)?.buffer?.duration ?? 0);
   const setTrackOffset = useAudioStore((s) => s.setTrackOffset);
   const [dragOffset, setDragOffset] = useState<number | null>(null);
+  // If a collaborator is currently dragging this clip, lock our own drag
+  // and paint a coloured ghost at their live position.
+  const remoteDrag = useCollabStore((s) => s.remoteDrags.get(track.id) || null);
 
   // Prefer time-axis positioning once the buffer has loaded; fall back to the
   // legacy side-by-side layout so clips don't collapse to zero width while the
@@ -182,9 +214,10 @@ function LaneClip({ track, selectedProjectId, deleteTrack, trackZoom, laneWidth,
   const displayName = (track.name || 'Track').replace(/\.(wav|mp3|flac|aiff|ogg|m4a)$/i, '').replace(/_/g, ' ');
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    // Don't start a drag if the user clicked on one of the hover controls.
     if ((e.target as HTMLElement).closest('button')) return;
     if (!haveTime) return;
+    // Conflict guard: someone else is already dragging this clip.
+    if (remoteDrag) return;
     const clipEl = e.currentTarget;
     const laneEl = clipEl.parentElement;
     if (!laneEl) return;
@@ -194,24 +227,31 @@ function LaneClip({ track, selectedProjectId, deleteTrack, trackZoom, laneWidth,
     const laneWidthPx = laneEl.clientWidth;
     const initialOffset = startOffset;
     let liveOffset = initialOffset;
+    const socket = getSocket();
+    let lastEmit = 0;
 
     const handleMove = (ev: PointerEvent) => {
       const deltaX = ev.clientX - startX;
       const deltaTime = (deltaX / laneWidthPx) * arrangementDur;
       liveOffset = Math.max(0, initialOffset + deltaTime);
       setDragOffset(liveOffset);
+      // Throttle live drag broadcast to ~30 Hz so collaborators see a smooth
+      // ghost move without flooding the socket.
+      const now = performance.now();
+      if (socket && now - lastEmit > 33) {
+        lastEmit = now;
+        socket.emit('clip:drag', { projectId: selectedProjectId, trackId: track.id, liveOffset });
+      }
     };
     const handleUp = () => {
-      // Commit: snap the final position to the nearest bar.
       const snapped = Math.max(0, snapToBar(liveOffset, bpm, 'nearest'));
       setDragOffset(null);
       if (Math.abs(snapped - initialOffset) > 0.001) {
         setTrackOffset(track.id, snapped);
-        // Ask TransportBar to flush the arrangement to localStorage now so
-        // the position survives even if the plugin is torn down before the
-        // debounced save runs.
         window.dispatchEvent(new CustomEvent('ghost-save-arrangement'));
       }
+      // Clear the remote ghost for every collaborator.
+      if (socket) socket.emit('clip:drag', { projectId: selectedProjectId, trackId: track.id, liveOffset: null });
       window.removeEventListener('pointermove', handleMove);
       window.removeEventListener('pointerup', handleUp);
     };
@@ -219,10 +259,37 @@ function LaneClip({ track, selectedProjectId, deleteTrack, trackZoom, laneWidth,
     window.addEventListener('pointerup', handleUp);
   };
 
+  // Remote ghost: someone else is dragging this clip — render a coloured
+  // outline at their live position + a small caption with their name.
+  const remoteGhostLeftPct = remoteDrag && haveTime
+    ? (remoteDrag.liveOffset / arrangementDur) * 100
+    : 0;
+
   return (
+    <>
+    {remoteDrag && haveTime && (
+      <div
+        className="absolute top-1 bottom-1 rounded-lg pointer-events-none"
+        style={{
+          left: `${remoteGhostLeftPct}%`,
+          width: `${clipWidth}%`,
+          border: `2px dashed ${remoteDrag.colour}`,
+          background: `${remoteDrag.colour}14`,
+          boxShadow: `0 0 10px ${remoteDrag.colour}55`,
+          zIndex: 9,
+        }}
+      >
+        <span
+          className="absolute -top-4 left-0 px-1.5 py-0.5 rounded text-[9px] font-bold whitespace-nowrap"
+          style={{ background: remoteDrag.colour, color: '#000' }}
+        >
+          {remoteDrag.displayName}
+        </span>
+      </div>
+    )}
     <div
       onPointerDown={handlePointerDown}
-      className={`absolute top-1 bottom-1 group rounded-lg overflow-hidden ${haveTime ? 'cursor-grab active:cursor-grabbing' : ''}`}
+      className={`absolute top-1 bottom-1 group rounded-lg overflow-hidden ${haveTime && !remoteDrag ? 'cursor-grab active:cursor-grabbing' : ''} ${remoteDrag ? 'cursor-not-allowed' : ''}`}
       style={{
         left: `${leftPct}%`,
         width: `${clipWidth}%`,
@@ -230,6 +297,7 @@ function LaneClip({ track, selectedProjectId, deleteTrack, trackZoom, laneWidth,
         border: '1px solid rgba(255,255,255,0.08)',
         boxShadow: dragOffset !== null ? '0 0 0 1px rgba(168,85,247,0.6), 0 4px 16px rgba(124,58,237,0.3)' : undefined,
         zIndex: dragOffset !== null ? 10 : undefined,
+        opacity: remoteDrag ? 0.5 : 1,
         userSelect: 'none',
       }}
     >
@@ -299,6 +367,7 @@ function LaneClip({ track, selectedProjectId, deleteTrack, trackZoom, laneWidth,
         </button>
       </div>
     </div>
+    </>
   );
 }
 
