@@ -205,6 +205,24 @@ export async function initDatabase() {
       project_id TEXT,
       created_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS sample_library_folders (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS sample_library_files (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      folder_id TEXT REFERENCES sample_library_folders(id) ON DELETE SET NULL,
+      file_name TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      file_size INTEGER NOT NULL,
+      mime_type TEXT NOT NULL,
+      s3_key TEXT NOT NULL,
+      peaks TEXT,
+      created_at TEXT NOT NULL
+    );
   `);
 
   // Migrations for existing databases

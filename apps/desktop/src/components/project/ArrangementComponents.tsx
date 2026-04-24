@@ -7,6 +7,7 @@ import { snapToBar } from '../../lib/audio';
 import { getSocket } from '../../lib/socket';
 import Waveform from '../tracks/Waveform';
 import Avatar from '../common/Avatar';
+import { SAMPLE_LIBRARY_DRAG_MIME } from '../layout/SampleLibrarySection';
 
 type Member = { userId: string; displayName: string; avatarUrl: string | null };
 
@@ -17,6 +18,18 @@ export function ArrangementDropZone({ projectId, onFilesAdded, children }: { pro
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
+    // First: a Sample Library drag — no upload needed, server copies storage.
+    const libPayload = e.dataTransfer.getData(SAMPLE_LIBRARY_DRAG_MIME);
+    if (libPayload) {
+      try {
+        const { id } = JSON.parse(libPayload);
+        if (id) {
+          await api.copySampleLibraryFileToProject(id, projectId);
+          onFilesAdded();
+          return;
+        }
+      } catch { /* fall through to file drop */ }
+    }
     const droppedFiles = Array.from(e.dataTransfer.files).filter((f) =>
       f.type.startsWith('audio/') || f.name.match(/\.(wav|mp3|flac|aiff|ogg|m4a|aac)$/i)
     );

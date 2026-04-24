@@ -5,6 +5,7 @@ import { api } from '../../lib/api';
 import { useAudioStore } from '../../stores/audioStore';
 import { ROOMS as COMMUNITY_ROOMS } from '../social/CommunityRooms';
 import { useCommunityStore } from '../../stores/communityStore';
+import SampleLibrarySection from './SampleLibrarySection';
 
 export type { SamplePack };
 
@@ -433,7 +434,11 @@ function ProjectListSidebar({
           </div>
         </Reorder.Item>
           );
-          if (sectionKey === 'samples') return null;
+          if (sectionKey === 'samples') return (
+        <Reorder.Item key="samples" value="samples" style={{ listStyle: 'none' }} className="cursor-grab active:cursor-grabbing" whileDrag={{ scale: 1.02, zIndex: 50, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
+          <SampleLibrarySection />
+        </Reorder.Item>
+          );
           return null;
         })}
 

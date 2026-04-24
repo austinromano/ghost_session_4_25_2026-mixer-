@@ -137,6 +137,26 @@ export const samplePackItems = sqliteTable('sample_pack_items', {
   createdAt: timestamp('created_at').notNull(),
 });
 
+export const sampleLibraryFolders = sqliteTable('sample_library_folders', {
+  id: uuid().primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at').notNull(),
+});
+
+export const sampleLibraryFiles = sqliteTable('sample_library_files', {
+  id: uuid().primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  folderId: text('folder_id').references(() => sampleLibraryFolders.id, { onDelete: 'set null' }),
+  fileName: text('file_name').notNull(),
+  displayName: text('display_name').notNull(),
+  fileSize: integer('file_size').notNull(),
+  mimeType: text('mime_type').notNull(),
+  s3Key: text('s3_key').notNull(),
+  peaks: text('peaks'),
+  createdAt: timestamp('created_at').notNull(),
+});
+
 export const chatMessages = sqliteTable('chat_messages', {
   id: uuid().primaryKey(),
   projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),

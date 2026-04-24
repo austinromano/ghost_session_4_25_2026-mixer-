@@ -224,7 +224,55 @@ export const api = {
     if (!res.ok) throw new Error(json.error || 'Upload failed');
     return json.data;
   },
+
+  // Sample Library
+  listSampleLibrary: () => request<{ folders: SampleLibraryFolder[]; files: SampleLibraryFile[] }>('GET', '/sample-library'),
+  createSampleLibraryFolder: (name: string) => request<SampleLibraryFolder>('POST', '/sample-library/folders', { name }),
+  deleteSampleLibraryFolder: (id: string) => request<void>('DELETE', `/sample-library/folders/${id}`),
+  uploadSampleLibraryFile: async (file: File, folderId: string | null): Promise<SampleLibraryFile> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (folderId) formData.append('folderId', folderId);
+    const headers: Record<string, string> = {};
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    const res = await fetch(`${BASE_URL}/sample-library/upload`, { method: 'POST', headers, body: formData });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Upload failed');
+    return json.data;
+  },
+  deleteSampleLibraryFile: (id: string) => request<void>('DELETE', `/sample-library/files/${id}`),
+  getSampleLibraryPeaks: async (fileId: string, bins = 1024) => {
+    const headers: Record<string, string> = {};
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    try {
+      const res = await fetch(`${BASE_URL}/sample-library/files/${fileId}/peaks?bins=${bins}`, { headers });
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json.data as { peaks: number[]; rms: number[]; duration: number; sampleRate: number; channels: number; bins: number };
+    } catch { return null; }
+  },
+  copySampleLibraryFileToProject: (fileId: string, projectId: string) =>
+    request<{ trackId: string; fileId: string }>('POST', `/sample-library/files/${fileId}/copy-to-project/${projectId}`),
 };
+
+export interface SampleLibraryFolder {
+  id: string;
+  userId: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface SampleLibraryFile {
+  id: string;
+  userId: string;
+  folderId: string | null;
+  fileName: string;
+  displayName: string;
+  fileSize: number;
+  mimeType: string;
+  peaks: string | null;
+  createdAt: string;
+}
 
 export interface CommunityMessage {
   id: string;
