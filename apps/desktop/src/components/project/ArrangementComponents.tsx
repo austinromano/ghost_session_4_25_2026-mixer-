@@ -793,26 +793,15 @@ export function DraggableTrackList({ tracks, selectedProjectId, deleteTrack, upd
   const setSelectedTrackIds = useAudioStore((s) => s.setSelectedTrackIds);
   const clearSelection = useAudioStore((s) => s.clearSelection);
 
-  // Per-project lane order — array of lane keys (fileId, since lanes group
-  // by fileId). Persisted to localStorage so the user's vertical layout
-  // sticks across reloads. New lanes (added later) get appended to the end.
-  const laneStorageKey = `ghost_lane_order_${selectedProjectId}`;
-  const [laneOrder, setLaneOrder] = useState<string[]>(() => {
-    try {
-      const raw = localStorage.getItem(laneStorageKey);
-      return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
-  });
-  // Reset when project changes (key includes selectedProjectId).
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(`ghost_lane_order_${selectedProjectId}`);
-      setLaneOrder(raw ? JSON.parse(raw) : []);
-    } catch { setLaneOrder([]); }
-  }, [selectedProjectId]);
-  useEffect(() => {
-    try { localStorage.setItem(laneStorageKey, JSON.stringify(laneOrder)); } catch { /* quota */ }
-  }, [laneStorageKey, laneOrder]);
+  // Lane order lives in the audio store and is round-tripped through the
+  // server's arrangement blob — every collaborator sees the same vertical
+  // layout. Reordering dispatches a flush so the change syncs instantly.
+  const laneOrder = useAudioStore((s) => s.laneOrder);
+  const setLaneOrderStore = useAudioStore((s) => s.setLaneOrder);
+  const handleReorder = useCallback((next: string[]) => {
+    setLaneOrderStore(next);
+    window.dispatchEvent(new CustomEvent('ghost-save-arrangement'));
+  }, [setLaneOrderStore]);
 
   const orderedLaneKeys = useMemo(() => {
     const keys = Array.from(lanes.keys());
@@ -888,7 +877,7 @@ export function DraggableTrackList({ tracks, selectedProjectId, deleteTrack, upd
       <Reorder.Group
         axis="y"
         values={orderedLaneKeys}
-        onReorder={setLaneOrder}
+        onReorder={handleReorder}
         className="flex flex-col gap-1"
         as="div"
       >

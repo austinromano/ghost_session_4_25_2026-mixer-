@@ -75,6 +75,11 @@ interface AudioState {
   groupDragDelta: number;
   setGroupDrag: (ids: Iterable<string>, delta: number) => void;
   endGroupDrag: () => void;
+  // Lane order — array of lane keys (fileId per the lanes-grouping rule).
+  // Lives in the arrangement blob so every collaborator sees the same
+  // vertical arrangement; persisted to server alongside clip positions.
+  laneOrder: string[];
+  setLaneOrder: (order: string[]) => void;
   // Grid snap subdivision — fraction of a bar. 1 = whole bar, 0.25 = quarter
   // note, 0.125 = eighth note, 0.0625 = sixteenth note. Drives every snap-
   // to-grid call across the arrangement (clip drag, paste, duplicate, trim).
@@ -300,6 +305,8 @@ export const useAudioStore = create<AudioState>((set, get) => {
     groupDragDelta: 0,
     setGroupDrag: (ids, delta) => set({ groupDragIds: new Set(ids), groupDragDelta: delta }),
     endGroupDrag: () => set({ groupDragIds: new Set(), groupDragDelta: 0 }),
+    laneOrder: [],
+    setLaneOrder: (order) => set({ laneOrder: [...order] }),
     gridDivision: (() => {
       const raw = typeof window !== 'undefined' ? window.localStorage?.getItem('ghost_grid_division') : null;
       const n = raw ? parseFloat(raw) : NaN;
@@ -737,7 +744,9 @@ export const useAudioStore = create<AudioState>((set, get) => {
           parentFileId: parentId ? serverTrackFileIds.get(parentId) : undefined,
         });
       });
-      return { clips };
+      // Carry the user's vertical lane order so every collaborator's
+      // arrangement view reads the same top-to-bottom layout.
+      return { clips, laneOrder: get().laneOrder };
     },
 
     applyArrangementClips: (clips) => {

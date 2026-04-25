@@ -178,6 +178,9 @@ export default function TransportBar({ tracks, projectId, projectTempo, onTempoC
           const clipIds = parsed.clips.map((c: any) => `${c.trackId.slice(0, 8)}@${c.startOffset.toFixed(2)}`);
           console.log('[arrangement] applying server blob', { clipsInBlob: parsed.clips.length, matchedInLoaded: matched, loadedTrackIds: trackIds, blobClips: clipIds });
           useAudioStore.getState().applyArrangementClips(parsed.clips);
+          if (Array.isArray(parsed.laneOrder)) {
+            useAudioStore.getState().setLaneOrder(parsed.laneOrder);
+          }
           lastAppliedServerRef.current = serverArrangementJson;
           return;
         } else {
@@ -210,6 +213,9 @@ export default function TransportBar({ tracks, projectId, projectTempo, onTempoC
         const preview = parsed.clips.map((c: any) => `${c.trackId.slice(0, 8)}@${c.startOffset.toFixed(2)}`);
         console.log('[arrangement] live-sync APPLYING remote blob', { clips: parsed.clips.length, preview });
         useAudioStore.getState().applyArrangementClips(parsed.clips);
+        if (Array.isArray(parsed.laneOrder)) {
+          useAudioStore.getState().setLaneOrder(parsed.laneOrder);
+        }
         lastAppliedServerRef.current = serverArrangementJson;
       }
     } catch { /* ignore malformed blobs */ }
@@ -223,6 +229,7 @@ export default function TransportBar({ tracks, projectId, projectTempo, onTempoC
   // one back — which is how "my moves don't persist" happens.
   const bufferVersion = useAudioStore((s) => s.bufferVersion);
   const arrangeLoadedTracks = useAudioStore((s) => s.loadedTracks);
+  const arrangeLaneOrder = useAudioStore((s) => s.laneOrder);
   useEffect(() => {
     if (!projectId || !tracks || arrangeLoadedTracks.size === 0) return;
     if (restoredProjectIdRef.current !== projectId) {
@@ -263,7 +270,7 @@ export default function TransportBar({ tracks, projectId, projectTempo, onTempoC
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [projectId, tracks, bufferVersion, arrangeLoadedTracks]);
+  }, [projectId, tracks, bufferVersion, arrangeLoadedTracks, arrangeLaneOrder]);
 
   // Immediate save on explicit drops / other critical moments — bypasses the
   // 500 ms debounce so the arrangement survives if the plugin is closed
