@@ -253,6 +253,13 @@ export const api = {
   },
   copySampleLibraryFileToProject: (fileId: string, projectId: string) =>
     request<{ trackId: string; fileId: string }>('POST', `/sample-library/files/${fileId}/copy-to-project/${projectId}`),
+  downloadSampleLibraryAudio: async (fileId: string): Promise<ArrayBuffer> => {
+    const headers: Record<string, string> = {};
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    const res = await fetch(`${BASE_URL}/sample-library/files/${fileId}/audio`, { headers });
+    if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`);
+    return res.arrayBuffer();
+  },
 };
 
 export interface SampleLibraryFolder {

@@ -1,7 +1,8 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSampleLibrary } from '../../hooks/useSampleLibrary';
 import type { SampleLibraryFile, SampleLibraryFolder } from '../../lib/api';
 import { devWarn } from '../../lib/log';
+import { samplePreview } from '../../lib/samplePreview';
 
 // MIME used when a library file is dragged into the arrangement. The drop
 // handler in ArrangementComponents looks for this and calls the copy-to-
@@ -276,6 +277,12 @@ export default function SampleLibrarySection() {
 }
 
 function LibraryFileRow({ file, onDelete }: { file: SampleLibraryFile; onDelete: () => void }) {
+  // Subscribe to the global preview singleton so this row shows the right
+  // play/stop icon whenever its file is the one currently playing.
+  const [previewingId, setPreviewingId] = useState<string | null>(samplePreview.currentId);
+  useEffect(() => samplePreview.subscribe(setPreviewingId), []);
+  const isPreviewing = previewingId === file.id;
+
   const onDragStart = (e: React.DragEvent) => {
     try {
       const payload = JSON.stringify({ id: file.id, name: file.displayName });
@@ -283,19 +290,35 @@ function LibraryFileRow({ file, onDelete }: { file: SampleLibraryFile; onDelete:
       // Also set text/plain so a failed drop onto the OS shows the file name.
       e.dataTransfer.setData('text/plain', file.displayName);
       e.dataTransfer.effectAllowed = 'copy';
+      // Don't leave a preview playing while the drop animation runs.
+      if (samplePreview.currentId === file.id) samplePreview.stop();
     } catch (err) { devWarn('LibraryFileRow.onDragStart', err); }
   };
+
+  const togglePreview = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    samplePreview.toggle(file.id);
+  };
+
   return (
     <div
       draggable
       onDragStart={onDragStart}
-      className="group w-full flex items-center gap-2 pl-6 pr-2 py-1 text-[12px] rounded-md text-white/55 hover:bg-white/[0.04] hover:text-white cursor-grab active:cursor-grabbing select-none"
-      title={`${file.displayName} — drag into the arrangement`}
+      className="group w-full flex items-center gap-2 pl-4 pr-2 py-1 text-[12px] rounded-md text-white/55 hover:bg-white/[0.04] hover:text-white cursor-grab active:cursor-grabbing select-none"
+      title={`${file.displayName} — click ▶ to preview, drag to add`}
     >
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-ghost-green/60">
-        <path d="M9 18V5l12-2v13" />
-        <circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-      </svg>
+      <button
+        onClick={togglePreview}
+        onPointerDown={(e) => e.stopPropagation()}
+        className={`shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-white/[0.08] transition-colors ${isPreviewing ? 'text-ghost-green' : 'text-white/40 hover:text-ghost-green'}`}
+        title={isPreviewing ? 'Stop preview' : 'Preview sample'}
+      >
+        {isPreviewing ? (
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><rect x="1" y="1" width="3" height="8" /><rect x="6" y="1" width="3" height="8" /></svg>
+        ) : (
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><polygon points="2,1 9,5 2,9" /></svg>
+        )}
+      </button>
       <span className="truncate flex-1">{file.displayName}</span>
       {file.sampleCharacter && (
         <span
