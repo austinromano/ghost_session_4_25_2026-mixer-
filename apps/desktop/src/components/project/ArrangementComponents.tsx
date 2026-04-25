@@ -11,6 +11,45 @@ import { SAMPLE_LIBRARY_DRAG_MIME } from '../layout/SampleLibrarySection';
 
 type Member = { userId: string; displayName: string; avatarUrl: string | null };
 
+// Width of the FL-Studio-style track header column on the left of every
+// lane. BarRuler and ArrangementPlayhead both pad/offset by this so their
+// time axis stays aligned with the clip area, NOT the headers.
+export const TRACK_HEADER_WIDTH = 110;
+
+// Same hue palette the Waveform uses, so the lane header's accent strip
+// always matches the colour of the clips inside it.
+const LANE_HUE_PALETTE = [270, 165, 300, 220, 190, 330];
+
+function laneHueForKey(key: string): number {
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = ((h << 5) - h + key.charCodeAt(i)) | 0;
+  return LANE_HUE_PALETTE[Math.abs(h) % LANE_HUE_PALETTE.length];
+}
+
+function TrackHeader({ name, hue, isSelected }: { name: string; hue: number; isSelected?: boolean }) {
+  const baseBg = `linear-gradient(180deg, hsl(${hue}, 28%, 22%) 0%, hsl(${hue}, 32%, 16%) 100%)`;
+  const accent = `hsl(${hue}, 75%, 55%)`;
+  const cleanName = name.replace(/\.(wav|mp3|flac|aiff|ogg|m4a|aac)$/i, '').replace(/_/g, ' ');
+  return (
+    <div
+      className="relative shrink-0 select-none flex items-center px-2 rounded-l-md overflow-hidden"
+      style={{
+        width: TRACK_HEADER_WIDTH,
+        background: baseBg,
+        borderRight: `2px solid ${accent}`,
+        boxShadow: isSelected ? `inset 0 0 0 1px ${accent}` : undefined,
+      }}
+      title={cleanName}
+    >
+      <span className="text-[11px] font-semibold text-white/85 truncate flex-1">{cleanName}</span>
+      <span
+        className="shrink-0 w-1.5 h-1.5 rounded-full"
+        style={{ background: accent, boxShadow: `0 0 4px ${accent}` }}
+      />
+    </div>
+  );
+}
+
 /* ── Drop zone for uploading audio files ── */
 export function ArrangementDropZone({ projectId, onFilesAdded, children }: { projectId: string; onFilesAdded: () => void; children: React.ReactNode }) {
   const [dragOver, setDragOver] = useState(false);
@@ -142,26 +181,30 @@ export function BarRuler() {
   };
 
   return (
-    <div
-      className="relative h-[18px] w-full select-none cursor-pointer"
-      style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-      onClick={handleSeek}
-      title="Click to seek"
-    >
-      {Array.from({ length: numBars }).map((_, i) => {
-        const leftPct = (i / numBars) * 100;
-        const labeled = i % step === 0;
-        return (
-          <div key={i} className="absolute top-0 bottom-0 pointer-events-none" style={{ left: `${leftPct}%` }}>
-            <div className="absolute top-0 left-0" style={{ width: 1, height: labeled ? 7 : 4, background: 'rgba(255,255,255,0.22)' }} />
-            {labeled && (
-              <span className="absolute left-[3px] top-[7px] text-[9px] leading-none font-medium tracking-wider text-white/35">
-                {i + 1}
-              </span>
-            )}
-          </div>
-        );
-      })}
+    <div className="flex h-[18px] w-full select-none" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+      {/* Header-column spacer keeps the time grid aligned with the clip
+          area below — bar 1 sits at the same x as the leftmost clip. */}
+      <div style={{ width: TRACK_HEADER_WIDTH }} className="shrink-0" />
+      <div
+        className="relative flex-1 cursor-pointer"
+        onClick={handleSeek}
+        title="Click to seek"
+      >
+        {Array.from({ length: numBars }).map((_, i) => {
+          const leftPct = (i / numBars) * 100;
+          const labeled = i % step === 0;
+          return (
+            <div key={i} className="absolute top-0 bottom-0 pointer-events-none" style={{ left: `${leftPct}%` }}>
+              <div className="absolute top-0 left-0" style={{ width: 1, height: labeled ? 7 : 4, background: 'rgba(255,255,255,0.22)' }} />
+              {labeled && (
+                <span className="absolute left-[3px] top-[7px] text-[9px] leading-none font-medium tracking-wider text-white/35">
+                  {i + 1}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -184,7 +227,10 @@ export function ArrangementPlayhead() {
   const remotes: Array<{ userId: string; pct: number; colour: string; displayName: string; isPlaying: boolean }> = [];
 
   return (
-    <>
+    // Wrapper offset by the track-header column so percentages map to the
+    // CLIP area only — playhead at 0% sits at the leftmost clip edge, not
+    // the leftmost header.
+    <div className="absolute top-0 bottom-0 pointer-events-none" style={{ left: TRACK_HEADER_WIDTH, right: 0 }}>
       {remotes.map((r) => (
         <div
           key={r.userId}
@@ -204,7 +250,7 @@ export function ArrangementPlayhead() {
           style={{ left: `${Math.min(localPct, 100)}%`, background: '#00FFC8', boxShadow: '0 0 6px rgba(0,255,200,0.5)' }}
         />
       )}
-    </>
+    </div>
   );
 }
 
@@ -663,27 +709,38 @@ export function DraggableTrackList({ tracks, selectedProjectId, deleteTrack, upd
       className="relative flex flex-col gap-1 mt-2"
       onPointerDown={handleMarqueeStart}
     >
-      {Array.from(lanes.entries()).map(([fileId, laneTracks]) => (
-        <div
-          key={fileId}
-          className="relative rounded-lg"
-          style={{ height: laneHeight, background: 'rgba(10,4,18,0.4)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
-        >
-          {laneTracks.map((track: any, idx: number) => (
-            <LaneClip
-              key={track.id}
-              track={track}
-              selectedProjectId={selectedProjectId}
-              deleteTrack={deleteTrack}
-              trackZoom={trackZoom}
-              laneWidth={100}
-              clipIndex={idx}
-              totalClips={laneTracks.length}
-              members={members}
-            />
-          ))}
-        </div>
-      ))}
+      {Array.from(lanes.entries()).map(([fileId, laneTracks]) => {
+        const headerKey = fileId || laneTracks[0]?.id || 'lane';
+        const hue = laneHueForKey(headerKey);
+        const laneName = laneTracks[0]?.name || 'Track';
+        return (
+          <div
+            key={fileId}
+            className="flex"
+            style={{ height: laneHeight }}
+          >
+            <TrackHeader name={laneName} hue={hue} />
+            <div
+              className="relative rounded-r-lg flex-1"
+              style={{ background: 'rgba(10,4,18,0.4)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+            >
+              {laneTracks.map((track: any, idx: number) => (
+                <LaneClip
+                  key={track.id}
+                  track={track}
+                  selectedProjectId={selectedProjectId}
+                  deleteTrack={deleteTrack}
+                  trackZoom={trackZoom}
+                  laneWidth={100}
+                  clipIndex={idx}
+                  totalClips={laneTracks.length}
+                  members={members}
+                />
+              ))}
+            </div>
+          </div>
+        );
+      })}
       {marquee && (
         <div
           className="pointer-events-none"
