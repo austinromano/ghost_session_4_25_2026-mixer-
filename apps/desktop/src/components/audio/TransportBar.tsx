@@ -7,24 +7,27 @@ import { getSocket } from '../../lib/socket';
 import { useCollabStore } from '../../stores/collabStore';
 import FrequencyBar, { type VizMode } from './FrequencyBar';
 
-// Module-level clipboard for the project's clip copy/paste keyboard
-// shortcuts. Stores a bundle of clips with their RELATIVE offsets so
-// pasting a multi-selection preserves the time spacing between them.
-//
-// `baseOffset` is where the first paste batch starts. Subsequent pastes
-// advance by the bundle's total duration so repeated Ctrl+V lays batches
-// end-to-end instead of stacking.
+// Ableton-style time-region clipboard. Cmd+C captures the selection as a
+// time slice (selectionStart..selectionEnd) plus every clip inside it,
+// recorded with offsets relative to selectionStart and their track/lane
+// mapping (fileId, since lanes group by fileId). Cmd+V reconstructs that
+// region at the current playhead — preserving exact spacing, cross-track
+// alignment, and any internal gaps. Cmd+C also moves the playhead to
+// selectionEnd, so a vanilla Cmd+C → Cmd+V drops the copy immediately
+// after the source. The user can click the timeline to move the playhead
+// elsewhere before pasting.
 interface ClipboardItem {
   fileId: string;
   name: string;
   type: string;
-  relOffset: number;   // seconds from the bundle's earliest clip
+  relOffset: number;   // seconds from selectionStart
   duration: number;
 }
 let clipClipboard: {
   items: ClipboardItem[];
-  bundleDuration: number;  // earliestOffset..latestEnd span
-  nextBaseOffset: number;  // where the NEXT Ctrl+V batch starts
+  selectionStart: number;
+  selectionEnd: number;
+  selectionLength: number;
 } | null = null;
 
 export default function TransportBar({ tracks, projectId, projectTempo, onTempoChange, trackZoom, onZoomChange, vizMode }: { tracks?: any[]; projectId?: string; projectTempo?: number; onTempoChange?: (bpm: number) => void; trackZoom?: 'full' | 'half'; onZoomChange?: (zoom: 'full' | 'half') => void; vizMode?: VizMode }) {
@@ -360,28 +363,33 @@ export default function TransportBar({ tracks, projectId, projectTempo, onTempoC
         if (!tracks || selIds.length === 0) return false;
         const loadedTracks = useAudioStore.getState().loadedTracks;
         const items: ClipboardItem[] = [];
-        let earliest = Infinity;
-        let latestEnd = 0;
+        let selectionStart = Infinity;
+        let selectionEnd = 0;
         for (const id of selIds) {
           const t = tracks.find((x: any) => x.id === id);
           if (!t || !t.fileId) continue;
           const loaded = loadedTracks.get(id);
           const duration = loaded?.buffer?.duration || 0;
           const offset = loaded?.startOffset ?? 0;
-          if (offset < earliest) earliest = offset;
-          if (offset + duration > latestEnd) latestEnd = offset + duration;
+          if (offset < selectionStart) selectionStart = offset;
+          if (offset + duration > selectionEnd) selectionEnd = offset + duration;
           items.push({ fileId: t.fileId, name: t.name || 'Clip', type: t.type || 'audio', relOffset: offset, duration });
         }
         if (items.length === 0) return false;
-        // Normalise relOffset to the bundle's earliest clip.
-        for (const it of items) it.relOffset = it.relOffset - earliest;
-        const bundleDuration = latestEnd - earliest;
+        // Normalise to the time region's start. Each item's relOffset is
+        // now its position WITHIN the region — gaps between selected clips
+        // get preserved because their absolute distances are encoded.
+        for (const it of items) it.relOffset = it.relOffset - selectionStart;
         clipClipboard = {
           items,
-          bundleDuration,
-          // First paste batch starts right after the last clip in the bundle.
-          nextBaseOffset: latestEnd,
+          selectionStart,
+          selectionEnd,
+          selectionLength: selectionEnd - selectionStart,
         };
+        // Move the edit cursor to selectionEnd. With this, Cmd+C → Cmd+V
+        // drops the paste immediately after the source (Ableton behaviour).
+        // The user can click the timeline before pasting to override.
+        useAudioStore.getState().seekTo(selectionEnd);
         return true;
       };
 
@@ -405,10 +413,14 @@ export default function TransportBar({ tracks, projectId, projectTempo, onTempoC
       } else if (k === 'v') {
         if (!clipClipboard) return;
         e.preventDefault();
-        // Paste the bundle EXACTLY adjacent to the source — no grid snap on
-        // the base. Fire every addTrack in parallel so 12 pasted clips
-        // come back in one round-trip-window instead of twelve.
-        const baseOffset = Math.max(0, clipClipboard.nextBaseOffset);
+        // PASTE = drop the time region at the playhead. The playhead is
+        // the edit cursor — Cmd+C moves it to selectionEnd so vanilla
+        // Cmd+C → Cmd+V appends adjacent; clicking the timeline before
+        // pasting puts the region anywhere the user wants. After paste,
+        // the cursor advances by selectionLength so repeated Cmd+V chains
+        // copies end-to-end (also Ableton's behaviour).
+        const playhead = useAudioStore.getState().currentTime;
+        const baseOffset = Math.max(0, playhead);
         const bundle = clipClipboard;
         try {
           await Promise.all(bundle.items.map(async (item) => {
@@ -419,8 +431,7 @@ export default function TransportBar({ tracks, projectId, projectTempo, onTempoC
             } as any);
             if (result?.id) pendingTrackOffsets.set(result.id, itemOffset);
           }));
-          // Advance the base for the next Ctrl+V so batches lay end-to-end.
-          bundle.nextBaseOffset = baseOffset + bundle.bundleDuration;
+          useAudioStore.getState().seekTo(baseOffset + bundle.selectionLength);
           window.dispatchEvent(new CustomEvent('ghost-refresh-project'));
           window.dispatchEvent(new CustomEvent('ghost-save-arrangement'));
         } catch { /* swallow — UI will surface via project refresh */ }
